@@ -16,7 +16,7 @@ SETTINGS = get_settings()
 
 class ChannelCrawler:
     """
-    fetches data from channel
+    scrolls through pages in channel and fetches data
     """
 
     def __init__(
