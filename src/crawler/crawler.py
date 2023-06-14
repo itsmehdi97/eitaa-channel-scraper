@@ -21,13 +21,15 @@ class ChannelCrawler:
 
     def __init__(
         self,
+        channel_name: str,
+        *,
         http_agent: Session,
         scraper: MessageScraper,
         repository: MongoRepository,
     ) -> None:
-        self.channel_name = SETTINGS.CHANNEL_NAME
+        self.channel_name = channel_name
         self.channel_id = None
-        self.channel_url = f"https://{SETTINGS.EITAA_DOMAIN}/{SETTINGS.CHANNEL_NAME}"
+        self.channel_url = f"https://{SETTINGS.EITAA_DOMAIN}/{channel_name}"
         self._http_agent = http_agent
         self._scraper = scraper
         self._repository = repository
@@ -74,32 +76,11 @@ class ChannelCrawler:
         if channel:
             return channel.get("offset", -1)
 
-        # try:
-        #     with open(f"./offsets/{self.channel_name}", "r") as f:
-        #         return int(f.read())
-
-        # except FileNotFoundError:
-        #     return None
-
     def update_channel_offset(self, offset: int) -> None:
         channel = self._repository.get_channel(self.channel_name)
         current_offset = channel.get('offset', -1)
         if offset > current_offset:
             self._repository.update_channel_offset(self.channel_name, offset)
-        
-
-        # with open(f"./offsets/{self.channel_name}", "w+") as f:
-        #     data = f.read()
-        #     if data:
-        #         current_offset = int(data)
-        #         if offset > current_offset:
-        #             f.seek(0)
-        #             f.write(str(offset))
-        #             f.truncate()
-        #     else:
-        #         f.write(str(offset))
-
-        #     logger.info(f"Offset updated to {offset} for channel {self.channel_name}")
 
     def get_msg_page(self, offset: int) -> Tuple[int, List[str]]:
         msg_text = self._fetch_msg_page(offset)

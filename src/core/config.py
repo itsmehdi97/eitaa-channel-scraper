@@ -4,7 +4,6 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    CHANNEL_NAME: str
     EITAA_DOMAIN: str
     MESSAGE_FETCH_INTERVAL: int
     CHANNEL_REFRESH_INTERVAL: int
@@ -18,6 +17,8 @@ class Settings(BaseSettings):
     MONGO_PASSWORD: str
     CHANNELS_COLLECTION: str
     MESSAGES_COLLECTION: str
+
+    CELERY_BROKER_URL: str
 
     LOG_LEVEL: str
 

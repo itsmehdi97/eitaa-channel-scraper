@@ -35,13 +35,28 @@ class MongoRepository(BaseRepository):
     def __init__(self, client: MongoClient) -> None:
         self._db = client["eitaa"]
 
-    def create_channel(self, channel_name: str, channel_info: str) -> None:
+    def update_channel_offset(self, channel_name: str, offset: int) -> None:
         self._db[SETTINGS.CHANNELS_COLLECTION].update_one(
             {"name": channel_name},
-            {"$set": {"info": channel_info} },
+            {"$set": {"offset": offset} },
+            upsert=True
+        )
+    
+    def get_channel(self, channel_name: str) -> dict | None:
+        return self._db[SETTINGS.CHANNELS_COLLECTION].find_one({"name": channel_name})
+
+    def create_channel(self, channel_name: str, channel_info: str) -> None:
+        offset = 1
+        if channel := self.get_channel(channel_name):
+            offset = channel.get('offset', offset)
+
+        self._db[SETTINGS.CHANNELS_COLLECTION].update_one(
+            {"name": channel_name},
+            {"$set": {"info": channel_info, "offset": offset} },
             upsert=True
         )
 
     def add_msg_to_channel(self, channel_name: str, msgs: List[str]) -> None:
-        for msg in msgs:
-            self._db[SETTINGS.MESSAGES_COLLECTION].insert_one({"channel": channel_name, "text": msg})
+        self._db[SETTINGS.MESSAGES_COLLECTION].insert_many(
+            [{"text": msg, "channel": channel_name} for msg in msgs]
+        )
