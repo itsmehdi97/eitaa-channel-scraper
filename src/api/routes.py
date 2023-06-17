@@ -4,13 +4,10 @@ from starlette.responses import Response
 from celery.schedules import schedule
 from redbeat import RedBeatSchedulerEntry
 
-from worker import tasks
 from worker.celery import app as celery_app
-from adapters import MongoRepository
+from adapters import MongoChannScheduleRepository
 from api.dependencies import get_repo
 import schemas
-
-
 
 
 router = APIRouter()
@@ -19,17 +16,20 @@ router = APIRouter()
 @router.post('/channels/')
 async def add_channel(
     chann_schedule: schemas.ChannelSchedule,
-    repo: MongoRepository = Depends(get_repo)
+    chann_repo: MongoChannScheduleRepository = Depends(get_repo)
 ) -> str:
-    if repo.get_channel(chann_schedule.channel_name):
+    if chann_repo.get({"channel_name": chann_schedule.channel_name}):
         raise HTTPException(
             status_code=400, detail="Channel already exists")
 
-    interval = schedule(45)
+    print("####", chann_schedule.dict())
+
+    chann_repo.create(chann_schedule)
+
     entry = RedBeatSchedulerEntry(
         f'crawl-{chann_schedule.channel_name}',
         'worker.tasks.refresh_channel',
-        interval, 
+        schedule(chann_schedule.refresh_interval), 
         app=celery_app,
         kwargs={"channel_name": chann_schedule.channel_name,})
     entry.save()

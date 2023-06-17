@@ -1,8 +1,8 @@
-from .repository import BaseRepository, ConsoleRepository, MongoRepository
+from .repository import BaseChannScheduleRepository, ConsoleRepository, MongoChannScheduleRepository
 
 
 __all__ = (
-    "BaseRepository",
+    "BaseChannScheduleRepository",
     "ConsoleRepository",
-    "MongoRepository",
+    "MongoChannScheduleRepository",
 )

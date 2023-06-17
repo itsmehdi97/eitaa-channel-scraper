@@ -2,7 +2,7 @@ from fastapi import Depends
 from starlette.requests import Request
 
 from db import MongoClient
-from adapters import MongoRepository
+from adapters import MongoChannScheduleRepository
 
 
 def get_db(request: Request):
@@ -11,5 +11,5 @@ def get_db(request: Request):
 
 def get_repo(
     db_client: MongoClient = Depends(get_db)
-) -> MongoRepository:
-    return MongoRepository(db_client)
+) -> MongoChannScheduleRepository:
+    return MongoChannScheduleRepository(db_client)

@@ -4,9 +4,10 @@ from logging import getLogger
 
 from requests import Session
 
+import schemas
 from core.config import get_settings
 from crawler.scraper import MessageScraper
-from adapters import MongoRepository
+from adapters import MongoChannScheduleRepository
 
 
 logger = getLogger(__name__)
@@ -25,7 +26,7 @@ class ChannelCrawler:
         *,
         http_agent: Session,
         scraper: MessageScraper,
-        repository: MongoRepository,
+        repository: MongoChannScheduleRepository,
     ) -> None:
         self.channel_name = channel_name
         self.channel_id = None
@@ -36,7 +37,7 @@ class ChannelCrawler:
 
     def start(self) -> int:
         msg_offset, info_str = self.get_channel_info()
-        self._repository.create_channel(self.channel_name, info_str)
+        self._repository.update(self.channel_name, info=info_str)
 
         if self.get_prev_run_offset and self.get_prev_run_offset >= msg_offset:
             logger.info(
@@ -66,21 +67,21 @@ class ChannelCrawler:
 
             current_offset = next_page_offset
 
-        self.update_channel_offset(msg_offset)
+        self._repository.update(self.channel_name, offset=msg_offset)
 
         return msg_offset
 
     @property
     def get_prev_run_offset(self) -> int | None:
-        channel = self._repository.get_channel(self.channel_name)
+        channel = self._repository.get({"channel_name": self.channel_name})
         if channel:
-            return channel.get("offset", -1)
+            return channel.offset or 1
 
     def update_channel_offset(self, offset: int) -> None:
-        channel = self._repository.get_channel(self.channel_name)
-        current_offset = channel.get('offset', -1)
+        channel = self._repository.get({"channel_name": self.channel_name})
+        current_offset = channel.offset
         if offset > current_offset:
-            self._repository.update_channel_offset(self.channel_name, offset)
+            self._repository.update(self.channel_name, offset=offset)
 
     def get_msg_page(self, offset: int) -> Tuple[int, List[str]]:
         msg_text = self._fetch_msg_page(offset)

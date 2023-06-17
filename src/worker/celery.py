@@ -5,9 +5,8 @@ from celery import Task
 from core.config import get_settings
 from db.tasks import connect_to_db
 from db import MongoClient
-from crawler import ChannelCrawler
 from crawler import MessageScraper
-from adapters import MongoRepository
+from adapters import MongoChannScheduleRepository
 
 
 settings = get_settings()
@@ -21,7 +20,7 @@ class CustomTask(Task):
     def repository(self) -> MongoClient:
         if self._db is None:
             self._db = connect_to_db()
-        return MongoRepository(self._db)
+        return MongoChannScheduleRepository(self._db)
 
     @property
     def http_session(self) -> requests.Session:
