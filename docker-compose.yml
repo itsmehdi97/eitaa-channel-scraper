@@ -1,9 +1,59 @@
 version: "3.9"  # optional since v1.27.0
 
 services:
-  crawler:
-    image: registry.local:5000/eitaa-crawler:latest
+  api:
+    image: registry.local:5000/eitaa-api:latest
     build: .
+    ports:
+      - 8082:80
+    volumes:
+      - ./src:/src
+    environment:
+      - CHANNEL_NAME=${CHANNEL_NAME:-world_py}
+      - EITAA_DOMAIN=${EITAA_DOMAIN:-eitaa.com}
+      - MESSAGE_FETCH_INTERVAL=${MESSAGE_FETCH_INTERVAL:-3000}
+      - CHANNEL_REFRESH_INTERVAL=${CHANNEL_REFRESH_INTERVAL:-3600000}
+      - INFO_CONTAINER_SELECTOR=.etme_channel_info
+      - MESSAGE_CONTAINER_SELECTOR=.etme_widget_message_wrap
+
+      - MONGO_HOST=db
+      - MONGO_PORT=27017
+      - MONGO_USER=user
+      - MONGO_PASSWORD=pass
+
+      - CHANNELS_COLLECTION=channels
+      - MESSAGES_COLLECTION=messages
+
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - REDBEAT_REDIS_URL=redis://redis:6379/1
+
+      - LOG_LEVEL=INFO
+    depends_on: 
+      - db
+      - rabbitmq
+      - redis
+
+  rabbitmq:
+    image: rabbitmq:latest
+    ports:
+      - "5672:5672"
+    volumes:
+      - broker-data:/data
+  
+  redis:
+    image: redis:6.0.9-alpine
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data:/data
+
+  worker:
+    image: registry.ds:5000/worker:latest
+    build: .
+    # command: celery -A worker.celery worker -Q default --hostname w@%h --loglevel=info
+    command: celery -A worker.celery worker --hostname w@%h --loglevel=info
+    volumes:
+      - ./src:/src
     environment:
       - CHANNEL_NAME=${CHANNEL_NAME:-world_py}
       - START_MESSAGE_OFFSET=${START_MESSAGE_OFFSET:-10}
@@ -21,11 +71,49 @@ services:
       - CHANNELS_COLLECTION=channels
       - MESSAGES_COLLECTION=messages
 
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - REDBEAT_REDIS_URL=redis://redis:6379/1
+
       - LOG_LEVEL=INFO
-    volumes:
-      - ./offsets:/src/offsets
-    depends_on: 
+
+    depends_on:
+      - rabbitmq
       - db
+      - redis
+
+  beat:
+    image: registry.ds:5000/worker:latest
+    build: .
+    # command: celery -A worker.celery worker -Q default --hostname w@%h --loglevel=info
+    command: celery -A worker.celery beat -S redbeat.RedBeatScheduler --max-interval 10 --loglevel=debug 
+    volumes:
+      - ./src:/src
+    environment:
+      - CHANNEL_NAME=${CHANNEL_NAME:-world_py}
+      - START_MESSAGE_OFFSET=${START_MESSAGE_OFFSET:-10}
+      - EITAA_DOMAIN=${EITAA_DOMAIN:-eitaa.com}
+      - MESSAGE_FETCH_INTERVAL=${MESSAGE_FETCH_INTERVAL:-3000}
+      - CHANNEL_REFRESH_INTERVAL=${CHANNEL_REFRESH_INTERVAL:-3600000}
+      - INFO_CONTAINER_SELECTOR=.etme_channel_info
+      - MESSAGE_CONTAINER_SELECTOR=.etme_widget_message_wrap
+
+      - MONGO_HOST=db
+      - MONGO_PORT=27017
+      - MONGO_USER=user
+      - MONGO_PASSWORD=pass
+
+      - CHANNELS_COLLECTION=channels
+      - MESSAGES_COLLECTION=messages
+
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - REDBEAT_REDIS_URL=redis://redis:6379/1
+
+      - LOG_LEVEL=INFO
+
+    depends_on:
+      - rabbitmq
+      - db
+      - redis
 
   db:
     image: mongo:latest
@@ -51,3 +139,5 @@ services:
 
 volumes:
   mongo-data:
+  broker-data:
+  redis-data:

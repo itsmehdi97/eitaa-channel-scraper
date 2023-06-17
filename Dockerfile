@@ -9,4 +9,4 @@ RUN pip install -r requirements.txt
 
 COPY src $WORKDIR
 
-CMD python main.py
+CMD uvicorn api.server:app --reload --host 0.0.0.0 --port 80 --log-level debug
