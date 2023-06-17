@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     MESSAGES_COLLECTION: str
 
     CELERY_BROKER_URL: str
+    REDBEAT_REDIS_URL: str
 
     LOG_LEVEL: str
 

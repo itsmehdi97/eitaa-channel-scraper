@@ -40,3 +40,5 @@ app = Celery(__name__, task_cls="worker.celery.CustomTask")
 app.conf.broker_url = settings.CELERY_BROKER_URL
 
 app.autodiscover_tasks(packages=['worker'], related_name='tasks')
+
+app.conf.redbeat_redis_url = settings.REDBEAT_REDIS_URL
