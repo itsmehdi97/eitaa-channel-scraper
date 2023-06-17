@@ -73,7 +73,7 @@ class MongoChannScheduleRepository(BaseChannScheduleRepository):
 
         self._db[SETTINGS.CHANNELS_COLLECTION].insert_one(chann_schedule.dict())
 
-    def add_msg_to_channel(self, channel_name: str, msgs: List[str]) -> None:
+    def add_msg_to_channel(self, channel_name: str, msgs: List[schemas.Message]) -> None:
         self._db[SETTINGS.MESSAGES_COLLECTION].insert_many(
-            [{"text": msg, "channel": channel_name} for msg in msgs]
+            [{**msg.dict(), "channel": channel_name} for msg in msgs]
         )

@@ -1,7 +1,9 @@
 from typing import Tuple, List
+from datetime import datetime
 
 from bs4 import BeautifulSoup
 
+import schemas
 from core.config import get_settings
 
 
@@ -29,11 +31,34 @@ class MessageScraper:
         messages_text = (
             messages_text[1:-1].replace("\\r", "").replace("\\n", "").replace("\\", "")
         )
+
         soup = BeautifulSoup(messages_text, "html.parser")
-        messages = soup.select(SETTINGS.MESSAGE_CONTAINER_SELECTOR)
+        message_wraps = soup.select('.etme_widget_message_wrap')
+        messages = []
+        for wrap in message_wraps:
+            msg_text = None
+            text_container = wrap.select_one('.etme_widget_message_text')
+            if text_container:
+                msg_text = text_container.get_text()
+
+            num_views = None
+            views_container = wrap.select_one('.etme_widget_message_views')
+            if views_container:
+                num_views = int(views_container.get_text().strip())
+
+            messages.append(
+                schemas.Message(
+                    id=int(wrap.attrs['id']),
+                    text=msg_text,
+                    num_views=num_views,
+                    timestamp=datetime.strptime(
+                        wrap.select('time')[-1].attrs['datetime'],
+                        '%Y-%m-%dT%H:%M:%S+00:00')
+                )
+            )
 
         offset = None
         if messages:
-            offset = int(messages[0].attrs["id"])
+            offset = int(messages[0].id)
 
-        return offset, list(map(lambda x: str(x), messages))
+        return offset, messages

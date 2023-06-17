@@ -19,3 +19,20 @@ class ChannelSchedule(BaseModel):
 
     info: Optional[str]  # TODO: remove this field
 
+
+class Channel(BaseModel):
+    name: str
+    username: str
+    num_follower: int
+    num_img: int
+    num_vid: int
+    num_file: int
+    info: str
+    img_url: str
+
+
+class Message(BaseModel):
+    id: str
+    text: Optional[str]
+    num_views: Optional[int]
+    timestamp: datetime  
