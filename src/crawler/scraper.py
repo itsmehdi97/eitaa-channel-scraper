@@ -54,7 +54,7 @@ class MessageScraper:
             num_views = None
             views_container = wrap.select_one('.etme_widget_message_views')
             if views_container:
-                num_views = int(views_container.get_text().strip())
+                num_views = self._parse_number(views_container.get_text().strip())
 
             messages.append(
                 schemas.Message(
