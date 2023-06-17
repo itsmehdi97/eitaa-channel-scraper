@@ -37,7 +37,6 @@ class ChannelCrawler:
 
     def start(self) -> int:
         msg_offset, channel = self.get_channel_info()
-        self._repository.update(self.channel_name, **channel.dict())
 
         if self.get_prev_run_offset and self.get_prev_run_offset >= msg_offset:
             logger.info(
@@ -45,19 +44,23 @@ class ChannelCrawler:
             )
             return msg_offset
 
+        _prev_offset = self.get_prev_run_offset
+
+        self._repository.update(self.channel_name, offset=msg_offset, **channel.dict())
+
         current_offset = msg_offset
         while True:
             time.sleep(SETTINGS.MESSAGE_FETCH_INTERVAL / 1000)
             next_page_offset, messages = self.get_msg_page(current_offset)
             self._repository.add_msg_to_channel(self.channel_name, messages)
 
-            logger.info(f"next page offset: {next_page_offset}")
+            logger.debug(f"next page offset for channel `{self.channel_name}`: {next_page_offset}")
             if (
                 not next_page_offset
                 or next_page_offset == 1
                 or (
-                    self.get_prev_run_offset
-                    and next_page_offset <= self.get_prev_run_offset
+                    _prev_offset
+                    and next_page_offset <= _prev_offset
                 )
             ):
                 logger.info(
@@ -67,7 +70,7 @@ class ChannelCrawler:
 
             current_offset = next_page_offset
 
-        self._repository.update(self.channel_name, offset=msg_offset)
+        # self._repository.update(self.channel_name, offset=msg_offset)
 
         return msg_offset
 
