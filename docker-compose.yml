@@ -6,8 +6,6 @@ services:
     build: .
     ports:
       - 8082:80
-    volumes:
-      - ./src:/src
     env_file:
       - .env.example
     depends_on: 
@@ -28,10 +26,7 @@ services:
   worker:
     image: registry.ds:5000/worker:latest
     build: .
-    # command: celery -A worker.celery worker -Q default --hostname w@%h --loglevel=info
     command: celery -A worker.celery worker --hostname w@%h --loglevel=info
-    volumes:
-      - ./src:/src
     env_file:
       - .env.example
     depends_on:
@@ -42,10 +37,7 @@ services:
   beat:
     image: registry.ds:5000/worker:latest
     build: .
-    # command: celery -A worker.celery worker -Q default --hostname w@%h --loglevel=info
     command: celery -A worker.celery beat -S redbeat.RedBeatScheduler --max-interval 10 --loglevel=debug 
-    volumes:
-      - ./src:/src
     env_file:
       - .env.example
     depends_on:
