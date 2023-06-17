@@ -21,7 +21,8 @@ class ChannelSchedule(BaseModel):
 
 
 class Channel(BaseModel):
-    name: str
+    id: Optional[str]
+    faname: str
     username: str
     num_follower: int
     num_img: int

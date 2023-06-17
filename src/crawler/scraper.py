@@ -12,23 +12,33 @@ SETTINGS = get_settings()
 
 class MessageScraper:
     """
-    extracts data from html.
+    extracts entitites from html.
     """
 
-    def extract_channel_info(self, channel_text: str) -> Tuple[int | None, str]:
+    def extract_channel_info(self, channel_text: str) -> Tuple[int | None, schemas.Channel]:
         offset = None
 
         soup = BeautifulSoup(channel_text, "html.parser")
         tag = soup.find("link", attrs={"rel": "canonical"})
         if tag:
             offset = int(tag.attrs["href"].split("=")[-1])
+        
+        stats = self._parse_channel_stats(soup)
 
-        info_div_tag_txt = soup.select_one(SETTINGS.INFO_CONTAINER_SELECTOR)
+        info = None
+        if info_container := soup.select_one(".etme_channel_info_description"):
+            info = info_container.get_text()
 
-        return offset, str(info_div_tag_txt)
+        return offset, schemas.Channel(
+            faname=soup.select_one('.etme_channel_info_header_title').get_text(),
+            username=soup.select_one('.etme_channel_info_header_username').select_one('a').get_text()[1:],
+            info=info,
+            img_url=f"eitaa.com/{soup.select_one('img').attrs['src']}",
+            **stats
+        )
 
     def extarct_messages(self, messages_text: str) -> Tuple[int | None, List[str]]:
-        messages_text = (
+        messages_text = (  # TODO
             messages_text[1:-1].replace("\\r", "").replace("\\n", "").replace("\\", "")
         )
 
@@ -62,3 +72,28 @@ class MessageScraper:
             offset = int(messages[0].id)
 
         return offset, messages
+
+    def _parse_number(self, numstr: str):
+        factors = {
+            'هزار': 1000,
+            'میلیون': 1000000,
+        }
+
+        for key, val in factors.items():
+            if key in numstr:
+                return float(numstr.replace(key, '')) * val
+
+        return float(numstr)
+
+    def _parse_channel_stats(self, soup: BeautifulSoup) -> dict:
+        keys = {
+            'دنبال\u200cکننده': 'num_follower',
+            'عکس': 'num_img',
+            'ویدیو': 'num_vid',
+            'فایل': 'num_file'
+        }
+
+        nums = map(lambda tag: self._parse_number(tag.get_text().strip()), soup.select('.counter_value'))
+        names = map(lambda tag: keys[tag.get_text().strip()], soup.select('.counter_type'))
+
+        return dict(zip(names, nums))

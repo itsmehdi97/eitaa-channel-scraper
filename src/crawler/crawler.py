@@ -36,8 +36,8 @@ class ChannelCrawler:
         self._repository = repository
 
     def start(self) -> int:
-        msg_offset, info_str = self.get_channel_info()
-        self._repository.update(self.channel_name, info=info_str)
+        msg_offset, channel = self.get_channel_info()
+        self._repository.update(self.channel_name, **channel.dict())
 
         if self.get_prev_run_offset and self.get_prev_run_offset >= msg_offset:
             logger.info(
@@ -87,7 +87,7 @@ class ChannelCrawler:
         msg_text = self._fetch_msg_page(offset)
         return self._scraper.extarct_messages(msg_text)
 
-    def get_channel_info(self) -> Tuple[int, str]:
+    def get_channel_info(self) -> Tuple[int, schemas.Channel]:
         chnl_text = self._fetch_channel()
         return self._scraper.extract_channel_info(chnl_text)
 
