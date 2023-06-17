@@ -8,26 +8,8 @@ services:
       - 8082:80
     volumes:
       - ./src:/src
-    environment:
-      - CHANNEL_NAME=${CHANNEL_NAME:-world_py}
-      - EITAA_DOMAIN=${EITAA_DOMAIN:-eitaa.com}
-      - MESSAGE_FETCH_INTERVAL=${MESSAGE_FETCH_INTERVAL:-3000}
-      - CHANNEL_REFRESH_INTERVAL=${CHANNEL_REFRESH_INTERVAL:-3600000}
-      - INFO_CONTAINER_SELECTOR=.etme_channel_info
-      - MESSAGE_CONTAINER_SELECTOR=.etme_widget_message_wrap
-
-      - MONGO_HOST=db
-      - MONGO_PORT=27017
-      - MONGO_USER=user
-      - MONGO_PASSWORD=pass
-
-      - CHANNELS_COLLECTION=channels
-      - MESSAGES_COLLECTION=messages
-
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - REDBEAT_REDIS_URL=redis://redis:6379/1
-
-      - LOG_LEVEL=INFO
+    env_file:
+      - .env.example
     depends_on: 
       - db
       - rabbitmq
@@ -35,15 +17,11 @@ services:
 
   rabbitmq:
     image: rabbitmq:latest
-    ports:
-      - "5672:5672"
     volumes:
       - broker-data:/data
   
   redis:
     image: redis:6.0.9-alpine
-    ports:
-      - 6379:6379
     volumes:
       - redis-data:/data
 
@@ -54,28 +32,8 @@ services:
     command: celery -A worker.celery worker --hostname w@%h --loglevel=info
     volumes:
       - ./src:/src
-    environment:
-      - CHANNEL_NAME=${CHANNEL_NAME:-world_py}
-      - START_MESSAGE_OFFSET=${START_MESSAGE_OFFSET:-10}
-      - EITAA_DOMAIN=${EITAA_DOMAIN:-eitaa.com}
-      - MESSAGE_FETCH_INTERVAL=${MESSAGE_FETCH_INTERVAL:-3000}
-      - CHANNEL_REFRESH_INTERVAL=${CHANNEL_REFRESH_INTERVAL:-3600000}
-      - INFO_CONTAINER_SELECTOR=.etme_channel_info
-      - MESSAGE_CONTAINER_SELECTOR=.etme_widget_message_wrap
-
-      - MONGO_HOST=db
-      - MONGO_PORT=27017
-      - MONGO_USER=user
-      - MONGO_PASSWORD=pass
-
-      - CHANNELS_COLLECTION=channels
-      - MESSAGES_COLLECTION=messages
-
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - REDBEAT_REDIS_URL=redis://redis:6379/1
-
-      - LOG_LEVEL=INFO
-
+    env_file:
+      - .env.example
     depends_on:
       - rabbitmq
       - db
@@ -88,28 +46,8 @@ services:
     command: celery -A worker.celery beat -S redbeat.RedBeatScheduler --max-interval 10 --loglevel=debug 
     volumes:
       - ./src:/src
-    environment:
-      - CHANNEL_NAME=${CHANNEL_NAME:-world_py}
-      - START_MESSAGE_OFFSET=${START_MESSAGE_OFFSET:-10}
-      - EITAA_DOMAIN=${EITAA_DOMAIN:-eitaa.com}
-      - MESSAGE_FETCH_INTERVAL=${MESSAGE_FETCH_INTERVAL:-3000}
-      - CHANNEL_REFRESH_INTERVAL=${CHANNEL_REFRESH_INTERVAL:-3600000}
-      - INFO_CONTAINER_SELECTOR=.etme_channel_info
-      - MESSAGE_CONTAINER_SELECTOR=.etme_widget_message_wrap
-
-      - MONGO_HOST=db
-      - MONGO_PORT=27017
-      - MONGO_USER=user
-      - MONGO_PASSWORD=pass
-
-      - CHANNELS_COLLECTION=channels
-      - MESSAGES_COLLECTION=messages
-
-      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
-      - REDBEAT_REDIS_URL=redis://redis:6379/1
-
-      - LOG_LEVEL=INFO
-
+    env_file:
+      - .env.example
     depends_on:
       - rabbitmq
       - db
@@ -117,8 +55,6 @@ services:
 
   db:
     image: mongo:latest
-    ports:
-      - 27017:27017
     environment:
       MONGO_INITDB_ROOT_USERNAME: user
       MONGO_INITDB_ROOT_PASSWORD: pass
