@@ -35,5 +35,8 @@ class Channel(BaseModel):
 class Message(BaseModel):
     id: str
     text: Optional[str]
+    img_url: Optional[str]
+    vid_url: Optional[str]
+    vid_duration: Optional[str]
     num_views: Optional[int]
-    timestamp: datetime  
+    timestamp: datetime
