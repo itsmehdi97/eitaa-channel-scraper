@@ -1,4 +1,8 @@
-from .repository import BaseChannScheduleRepository, ConsoleRepository, MongoChannScheduleRepository
+from .repository import (
+    BaseChannScheduleRepository,
+    ConsoleRepository,
+    MongoChannScheduleRepository,
+)
 
 
 __all__ = (

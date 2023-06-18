@@ -1,6 +1,4 @@
 from pymongo import MongoClient
 
 
-__all__ = (
-    "MongoClient",
-)
+__all__ = ("MongoClient",)

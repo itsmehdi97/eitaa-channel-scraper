@@ -13,7 +13,7 @@ settings = get_settings()
 
 
 class CustomTask(Task):
-    _db : MongoClient = None
+    _db: MongoClient = None
     _http: requests.Session = None
 
     @property
@@ -26,9 +26,11 @@ class CustomTask(Task):
     def http_session(self) -> requests.Session:
         if self._http is None:
             self._http = requests.Session()
-            self._http.headers.update({
-                "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/113.0",
-            })
+            self._http.headers.update(
+                {
+                    "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/113.0",
+                }
+            )
         return self._http
 
     def _get_scraper(self) -> MessageScraper:
@@ -38,6 +40,6 @@ class CustomTask(Task):
 app = Celery(__name__, task_cls="worker.celery.CustomTask")
 app.conf.broker_url = settings.CELERY_BROKER_URL
 
-app.autodiscover_tasks(packages=['worker'], related_name='tasks')
+app.autodiscover_tasks(packages=["worker"], related_name="tasks")
 
 app.conf.redbeat_redis_url = settings.REDBEAT_REDIS_URL

@@ -55,14 +55,13 @@ class ChannelCrawler:
             if messages:
                 self._repository.add_msg_to_channel(self.channel_name, messages)
 
-            logger.debug(f"next page offset for channel `{self.channel_name}`: {next_page_offset}")
+            logger.debug(
+                f"next page offset for channel `{self.channel_name}`: {next_page_offset}"
+            )
             if (
                 not next_page_offset
                 or next_page_offset == 1
-                or (
-                    _prev_offset
-                    and next_page_offset <= _prev_offset
-                )
+                or (_prev_offset and next_page_offset <= _prev_offset)
             ):
                 logger.info(
                     f"All messages on channel `{self.channel_name}` collected from beginning to offset {msg_offset}"

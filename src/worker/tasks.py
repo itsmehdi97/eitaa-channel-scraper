@@ -12,7 +12,7 @@ def refresh_channel(self, *, channel_name: str) -> None:  # type: ignore
         channel_name,
         http_agent=self.http_session,
         scraper=self._get_scraper(),
-        repository=self.repository
+        repository=self.repository,
     )
 
     crawler.start()

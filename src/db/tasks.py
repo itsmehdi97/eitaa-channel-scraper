@@ -17,7 +17,7 @@ def connect_to_db(app=None) -> MongoClient:
             app.state._db = client
 
         return client
-        
+
     except Exception as e:
         logger.warn("--- DB CONNECTION ERROR ---")
         logger.warn(e)
