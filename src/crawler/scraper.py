@@ -25,15 +25,17 @@ class MessageScraper:
         
         stats = self._parse_channel_stats(soup)
 
+        info_container = soup.select_one('.etme_channel_info')
+
         info = None
-        if info_container := soup.select_one(".etme_channel_info_description"):
-            info = info_container.get_text()
+        if desc := info_container.select_one(".etme_channel_info_description"):
+            info = desc.get_text()
 
         return offset, schemas.Channel(
-            faname=soup.select_one('.etme_channel_info_header_title').get_text(),
-            username=soup.select_one('.etme_channel_info_header_username').select_one('a').get_text()[1:],
+            faname=info_container.select_one('.etme_channel_info_header_title').get_text(),
+            username=info_container.select_one('.etme_channel_info_header_username').select_one('a').get_text()[1:],
             info=info,
-            img_url=f"eitaa.com/{soup.select_one('img').attrs['src']}",
+            img_url=f"eitaa.com{info_container.select_one('img').attrs['src']}",
             **stats
         )
 
