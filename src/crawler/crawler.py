@@ -1,13 +1,15 @@
+import json
 import time
 from typing import Tuple, List
 from logging import getLogger
 
 from requests import Session
+from pika.channel import Channel
 
 import schemas
 from core.config import get_settings
 from crawler.scraper import MessageScraper
-from adapters import MongoChannScheduleRepository
+from adapters import MongoChannScheduleRepository, RabbitConnection
 
 
 logger = getLogger(__name__)
@@ -27,6 +29,7 @@ class ChannelCrawler:
         http_agent: Session,
         scraper: MessageScraper,
         repository: MongoChannScheduleRepository,
+        rabbit_channel: Channel
     ) -> None:
         self.channel_name = channel_name
         self.channel_id = None
@@ -34,9 +37,17 @@ class ChannelCrawler:
         self._http_agent = http_agent
         self._scraper = scraper
         self._repository = repository
+        self._rabbit_channel = rabbit_channel
 
     def start(self) -> int:
         msg_offset, channel = self.get_channel_info()
+
+        if self._channel_updated:
+            self.publish(
+                channel,
+                SETTINGS.CHANNELS_QUEUE)
+
+            self._repository.update(self.channel_name, **channel.dict())
 
         if self.get_prev_run_offset and self.get_prev_run_offset >= msg_offset:
             logger.info(
@@ -46,14 +57,19 @@ class ChannelCrawler:
 
         _prev_offset = self.get_prev_run_offset
 
-        self._repository.update(self.channel_name, offset=msg_offset, **channel.dict())
+        self._repository.update(self.channel_name, offset=msg_offset)
 
         current_offset = msg_offset
         while True:
             time.sleep(SETTINGS.MESSAGE_FETCH_INTERVAL / 1000)
             next_page_offset, messages = self.get_msg_page(current_offset)
             if messages:
-                self._repository.add_msg_to_channel(self.channel_name, messages)
+                # self._repository.add_msg_to_channel(self.channel_name, messages)
+                for msg in messages:
+                    self.publish(
+                        msg,
+                        queue=SETTINGS.MESSAGES_QUEUE
+                    )
 
             logger.debug(
                 f"next page offset for channel `{self.channel_name}`: {next_page_offset}"
@@ -86,7 +102,7 @@ class ChannelCrawler:
         if offset > current_offset:
             self._repository.update(self.channel_name, offset=offset)
 
-    def get_msg_page(self, offset: int) -> Tuple[int, List[str]]:
+    def get_msg_page(self, offset: int) -> Tuple[int, List[schemas.Message]]:
         msg_text = self._fetch_msg_page(offset)
         return self._scraper.extarct_messages(msg_text)
 
@@ -101,3 +117,18 @@ class ChannelCrawler:
     def _fetch_channel(self) -> str:
         resp = self._http_agent.get(self.channel_url)
         return resp.text
+
+    def _channel_updated(self, channel: schemas.Channel) -> bool:
+        if old_channel := self._repository.get({"channel_name": channel.username}):
+            if not old_channel == channel.dict():
+                return True
+            return False
+        return True
+
+    def publish(self, data: schemas.BaseModel, queue: str) -> None:
+        RabbitConnection.publish(
+            json.dumps(data.json(), ensure_ascii=False),
+            channel=self._rabbit_channel,
+            exchange=queue,
+            routing_key=queue
+        )

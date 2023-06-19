@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str
     REDBEAT_REDIS_URL: str
 
+    RABBITMQ_URL: str
+    CHANNELS_QUEUE: str
+    MESSAGES_QUEUE: str
+
     LOG_LEVEL: str
 
     class Config:

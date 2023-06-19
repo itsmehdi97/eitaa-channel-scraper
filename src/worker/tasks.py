@@ -13,6 +13,7 @@ def refresh_channel(self, *, channel_name: str) -> None:  # type: ignore
         http_agent=self.http_session,
         scraper=self._get_scraper(),
         repository=self.repository,
+        rabbit_channel=self.rabbit_channel
     )
 
     crawler.start()
