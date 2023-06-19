@@ -15,6 +15,10 @@ services:
 
   rabbitmq:
     image: rabbitmq:latest
+    build:
+      dockerfile: ./rabbit.Dockerfile
+    ports:
+      - 15672:15672
     volumes:
       - broker-data:/data
   
