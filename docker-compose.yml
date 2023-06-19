@@ -52,6 +52,12 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: pass
     volumes:
       - mongo-data:/data/db
+  
+  flower:
+    image: mher/flower:latest
+    command: celery --broker=amqp://guest:guest@rabbitmq:5672// flower
+    ports:
+      - 49555:5555
 
   mongo-express:
     image: mongo-express:latest
