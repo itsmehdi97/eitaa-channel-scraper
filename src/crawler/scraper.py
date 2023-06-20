@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 
 import schemas
 from core.config import get_settings
+from .exceptions import InvalidHTML
 
 
 SETTINGS = get_settings()
@@ -24,6 +25,8 @@ class MessageScraper:
         tag = soup.find("link", attrs={"rel": "canonical"})
         if tag:
             offset = int(tag.attrs["href"].split("=")[-1])
+        else:
+            raise InvalidHTML("Html received from channel is not valid")
 
         stats = self._parse_channel_stats(soup)
 

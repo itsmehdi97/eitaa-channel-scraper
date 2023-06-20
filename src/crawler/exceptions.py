@@ -1,0 +1,2 @@
+class InvalidHTML(Exception):
+    pass
