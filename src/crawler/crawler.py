@@ -42,7 +42,7 @@ class ChannelCrawler:
     def start(self) -> int:
         msg_offset, channel = self.get_channel_info()
 
-        if self._channel_updated:
+        if self._channel_updated(channel):
             self.publish(
                 channel,
                 SETTINGS.CHANNELS_QUEUE)
@@ -59,34 +59,12 @@ class ChannelCrawler:
 
         self._repository.update(self.channel_name, offset=msg_offset)
 
-        current_offset = msg_offset
-        while True:
-            time.sleep(SETTINGS.MESSAGE_FETCH_INTERVAL / 1000)
-            next_page_offset, messages = self.get_msg_page(current_offset)
-            if messages:
-                # self._repository.add_msg_to_channel(self.channel_name, messages)
-                for msg in messages:
-                    self.publish(
-                        msg,
-                        queue=SETTINGS.MESSAGES_QUEUE
-                    )
-
-            logger.debug(
-                f"next page offset for channel `{self.channel_name}`: {next_page_offset}"
-            )
-            if (
-                not next_page_offset
-                or next_page_offset == 1
-                or (_prev_offset and next_page_offset <= _prev_offset)
-            ):
-                logger.info(
-                    f"All messages on channel `{self.channel_name}` collected from beginning to offset {msg_offset}"
-                )
-                break
-
-            current_offset = next_page_offset
-
-        # self._repository.update(self.channel_name, offset=msg_offset)
+        from worker.tasks import get_message_page
+        get_message_page.apply_async(kwargs={
+            'channel_name': self.channel_name,
+            'start_offset':msg_offset,
+            'end_offset':_prev_offset
+        })
 
         return msg_offset
 
@@ -102,17 +80,9 @@ class ChannelCrawler:
         if offset > current_offset:
             self._repository.update(self.channel_name, offset=offset)
 
-    def get_msg_page(self, offset: int) -> Tuple[int, List[schemas.Message]]:
-        msg_text = self._fetch_msg_page(offset)
-        return self._scraper.extarct_messages(msg_text)
-
     def get_channel_info(self) -> Tuple[int, schemas.Channel]:
         chnl_text = self._fetch_channel()
         return self._scraper.extract_channel_info(chnl_text)
-
-    def _fetch_msg_page(self, offset: int) -> str:
-        resp = self._http_agent.get(f"{self.channel_url}?before={offset}")
-        return resp.text
 
     def _fetch_channel(self) -> str:
         resp = self._http_agent.get(self.channel_url)
@@ -120,7 +90,13 @@ class ChannelCrawler:
 
     def _channel_updated(self, channel: schemas.Channel) -> bool:
         if old_channel := self._repository.get({"channel_name": channel.username}):
-            if not old_channel == channel.dict():
+            channel = channel.dict()
+            old_channel = old_channel.dict()
+            if 'updated_at' in channel:
+                del channel['updated_at']
+            if 'updated_at' in old_channel:
+                del old_channel['updated_at']
+            if not old_channel == channel:
                 return True
             return False
         return True
@@ -132,3 +108,29 @@ class ChannelCrawler:
             exchange=queue,
             routing_key=queue
         )
+
+
+class MessageCrawler(ChannelCrawler):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def start(self, offset: int) -> int:
+        next_page_offest, messages = self.get_msg_page(offset)
+
+        if messages:
+            self._repository.add_msg_to_channel(self.channel_name, messages)
+            for msg in messages:
+                self.publish(
+                    msg,
+                    queue=SETTINGS.MESSAGES_QUEUE
+            )
+
+        return next_page_offest
+        
+    def get_msg_page(self, offset: int) -> Tuple[int, List[schemas.Message]]:
+        msg_text = self._fetch_msg_page(offset)
+        return self._scraper.extarct_messages(msg_text)
+
+    def _fetch_msg_page(self, offset: int) -> str:
+        resp = self._http_agent.get(f"{self.channel_url}?before={offset}")
+        return resp.text
