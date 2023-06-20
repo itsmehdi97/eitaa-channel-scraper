@@ -59,7 +59,13 @@ class CustomTask(Task):
                 routing_key=settings.MESSAGES_QUEUE,
             )
             self._rabbit_conn = conn
-        return self._rabbit_conn.get_channel()
+        try:
+            return self._rabbit_conn.get_channel()
+        except Exception as e:
+            conn = RabbitConnection(conn_url=settings.RABBITMQ_URL)
+            self._rabbit_conn = conn
+            chann = self._rabbit_conn.get_channel()
+            return chann
 
 
 app = Celery(__name__, task_cls="worker.celery.CustomTask")
