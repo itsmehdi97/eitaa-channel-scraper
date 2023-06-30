@@ -4,7 +4,7 @@ from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
-    EITAA_DOMAIN: str
+    QUERY_API_URL: str
     MESSAGE_FETCH_INTERVAL: int
     CHANNEL_REFRESH_INTERVAL: int
 

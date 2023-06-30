@@ -1,9 +1,10 @@
 from .crawler import ChannelCrawler, MessageCrawler
-from .scraper import MessageScraper
+from .scraper import HTMLMessageScraper, JSONMessageScraper
 
 
 __all__ = (
     "ChannelCrawler",
-    "MessageScraper",
-    "MesssageCrawler",
+    "MessageCrawler",
+    "HTMLMessageScraper",
+    "JSONMessageScraper",
 )

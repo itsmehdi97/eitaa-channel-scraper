@@ -9,7 +9,7 @@ from pika.channel import Channel
 from core.config import get_settings
 from db.tasks import connect_to_db
 from db import MongoClient
-from crawler import MessageScraper
+from crawler import JSONMessageScraper
 from adapters import MongoChannScheduleRepository, RabbitConnection
 
 
@@ -35,14 +35,16 @@ class CustomTask(Task):
             s.mount('https://eitaa.com/', HTTPAdapter(max_retries=retries))
             s.headers.update(
                 {
-                    "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/113.0",
+                    # "User-Agent": "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/113.0",
+                    'content-type': 'application/json',
+                    'accept': '*/*',
                 }
             )
             self._http = s
         return self._http
 
-    def _get_scraper(self) -> MessageScraper:
-        return MessageScraper()
+    def _get_scraper(self) -> JSONMessageScraper:
+        return JSONMessageScraper()
 
     @property
     def rabbit_channel(self) -> Channel:

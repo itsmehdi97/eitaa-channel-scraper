@@ -1,5 +1,6 @@
 from logging import getLogger
 
+import schemas
 from worker.celery import app
 from core.config import get_settings
 from crawler import ChannelCrawler, MessageCrawler
@@ -11,9 +12,9 @@ settings = get_settings()
 
 
 @app.task(bind=True)
-def refresh_channel(self, *, channel_name: str) -> None:  # type: ignore
+def refresh_channel(self, *, peer_channel: dict) -> None:  # type: ignore
     crawler = ChannelCrawler(
-        channel_name,
+        peer_channel=schemas.PeerChannel(**peer_channel),
         http_agent=self.http_session,
         scraper=self._get_scraper(),
         repository=self.repository,
@@ -24,9 +25,9 @@ def refresh_channel(self, *, channel_name: str) -> None:  # type: ignore
 
 
 @app.task(bind=True)
-def get_message_page(self, *, channel_name: str, start_offset: int, end_offset: int) -> None:
+def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset: int) -> None:
     if not start_offset:
-        logger.info(f"start offset for channel `{channel_name}`: None")
+        logger.info(f"start offset for channel `{peer_channel['channel_id']}`: None")
         return
 
     if start_offset <= end_offset or start_offset == 1:
@@ -34,7 +35,7 @@ def get_message_page(self, *, channel_name: str, start_offset: int, end_offset: 
         return
 
     crawler = MessageCrawler(
-        channel_name,
+        peer_channel=schemas.PeerChannel(channel_id=peer_channel['id'], access_hash=peer_channel['access_hash']),
         http_agent=self.http_session,
         scraper=self._get_scraper(),
         repository=self.repository,
@@ -46,7 +47,7 @@ def get_message_page(self, *, channel_name: str, start_offset: int, end_offset: 
     if next_start_offset and \
         next_start_offset >= end_offset and next_start_offset != 1:
         get_message_page.apply_async(kwargs={
-            'channel_name': channel_name,
+            'peer_channel': peer_channel,
             'start_offset': next_start_offset,
             'end_offset': end_offset
         })

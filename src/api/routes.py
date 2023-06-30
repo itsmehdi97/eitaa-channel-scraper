@@ -18,18 +18,20 @@ async def add_channel(
     chann_schedule: schemas.ChannelSchedule,
     chann_repo: MongoChannScheduleRepository = Depends(get_repo),
 ) -> str:
-    if chann_repo.get({"channel_name": chann_schedule.channel_name}):
+    if chann_repo.get({"id": chann_schedule.id}):
         raise HTTPException(status_code=400, detail="Channel already exists")
 
     chann_repo.create(chann_schedule)
 
     entry = RedBeatSchedulerEntry(
-        f"crawl-{chann_schedule.channel_name}",
+        f"crawl-{chann_schedule.id}",
         "worker.tasks.refresh_channel",
         schedule(chann_schedule.refresh_interval),
         app=celery_app,
         kwargs={
-            "channel_name": chann_schedule.channel_name,
+            "peer_channel": {
+                'channel_id': chann_schedule.id,
+                'access_hash': chann_schedule.access_hash},
         },
     )
     entry.save()

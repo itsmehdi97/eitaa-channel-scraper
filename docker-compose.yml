@@ -12,6 +12,8 @@ services:
       - db
       - rabbitmq
       - redis
+    networks:
+      - backnet
 
   rabbitmq:
     image: rabbitmq:latest
@@ -21,11 +23,15 @@ services:
       - 15672:15672
     volumes:
       - broker-data:/data
+    networks:
+      - backnet
   
   redis:
     image: redis:6.0.9-alpine
     volumes:
       - redis-data:/data
+    networks:
+      - backnet
 
   worker:
     image: registry.ds:5000/worker:latest
@@ -37,6 +43,8 @@ services:
       - rabbitmq
       - db
       - redis
+    networks:
+      - backnet
 
   beat:
     image: registry.ds:5000/worker:latest
@@ -48,6 +56,8 @@ services:
       - rabbitmq
       - db
       - redis
+    networks:
+      - backnet
 
   db:
     image: mongo:latest
@@ -56,12 +66,16 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: pass
     volumes:
       - mongo-data:/data/db
+    networks:
+      - backnet
   
   flower:
     image: mher/flower:latest
     command: celery --broker=amqp://guest:guest@rabbitmq:5672// flower
     ports:
       - 49555:5555
+    networks:
+      - backnet
 
   mongo-express:
     image: mongo-express:latest
@@ -74,8 +88,14 @@ services:
       ME_CONFIG_MONGODB_URL: mongodb://user:pass@db:27017/
     depends_on: 
       - db
+    networks:
+      - backnet
 
 volumes:
   mongo-data:
   broker-data:
   redis-data:
+
+networks:
+  backnet:
+    external: true

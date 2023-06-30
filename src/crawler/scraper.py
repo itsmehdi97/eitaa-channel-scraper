@@ -11,7 +11,7 @@ from .exceptions import InvalidHTML
 SETTINGS = get_settings()
 
 
-class MessageScraper:
+class HTMLMessageScraper:
     """
     extracts entitites from html.
     """
@@ -129,3 +129,34 @@ class MessageScraper:
         )
 
         return dict(zip(names, nums))
+
+
+class JSONMessageScraper:
+    """
+    extracts entitites from json.
+    """
+
+    def extract_channel_info(
+        self, channel_data: dict
+    ) -> Tuple[int | None, schemas.Channel]:
+        
+        full_chat: dict = channel_data["full_chat"]
+        chat: dict = channel_data["chats"][0]
+
+        pts = full_chat.get("pts")
+        
+        return pts, schemas.Channel(
+            id=chat["id"],
+            title=chat.get("username"),
+            username=chat.get("username"),
+            about=full_chat.get("about"),
+            participants_count=full_chat.get("participants_count"),
+        )
+
+    def extarct_messages(self, history_data: dict) -> Tuple[int | None, List[str]]:
+        offset = None
+        messages = history_data['messages']
+        if messages:
+            offset = messages[-1]['id']
+        return offset, [msg['message'] for msg in messages]
+            
