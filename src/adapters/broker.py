@@ -1,5 +1,3 @@
-import json
-
 import pika
 from pika.channel import Channel
 

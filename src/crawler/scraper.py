@@ -76,7 +76,7 @@ class MessageScraper:
             vid_duration = None
             if vid := wrap.select_one('video.etme_widget_message_video'):
                 vid_url = "eitaa.com" + vid.attrs['src']
-                if v:= wrap.select_one('time.message_video_duration'):
+                if v := wrap.select_one('time.message_video_duration'):
                     vid_duration = v.get_text()
 
             messages.append(
