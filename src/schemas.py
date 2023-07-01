@@ -10,11 +10,15 @@ SETTINGS = get_settings()
 
 
 class Peer(BaseModel):
-    access_hash: int
+    access_hash: Optional[int]
 
 
 class PeerChannel(Peer):
     channel_id: int
+
+
+class PeerUser(Peer):
+    user_id: int
 
 
 class Method(BaseModel):
@@ -28,7 +32,7 @@ class Method(BaseModel):
 
 class ChannelSchedule(BaseModel):
     channel_id: int
-    access_hash: int
+    access_hash: Optional[int]
     refresh_interval: Optional[int] = SETTINGS.CHANNEL_REFRESH_INTERVAL
     offset: Optional[int] = 1
     pts: Optional[int]
@@ -52,9 +56,10 @@ class Channel(BaseModel):
 
 class Message(BaseModel):
     id: str
-    text: Optional[str]
-    img_url: Optional[str]
-    vid_url: Optional[str]
-    vid_duration: Optional[str]
-    num_views: Optional[int]
-    timestamp: datetime
+    message: Optional[str]
+    date: int
+    views: Optional[int]
+    forwards: Optional[int]
+    channel_id: int
+    from_peer: dict
+    fwd_from: Optional[dict]

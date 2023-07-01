@@ -153,10 +153,46 @@ class JSONMessageScraper:
             participants_count=full_chat.get("participants_count"),
         )
 
-    def extarct_messages(self, history_data: dict) -> Tuple[int | None, List[str]]:
+    def extarct_messages(self, history_data: dict) -> Tuple[int | None, List[schemas.Message]]:
         offset = None
         messages = history_data['messages']
         if messages:
             offset = messages[-1]['id']
-        return offset, [{'text': msg.get('message'), 'id': msg['id']} for msg in messages]
-            
+
+        rv = []
+        for msg in messages:
+            rv.append(schemas.Message(
+                id=msg['id'],
+                message=msg.get('message'),
+                date=msg.get('date'),
+                views=msg.get('views'),
+                forwards=msg.get('forwards'),
+                channel_id=msg.get('peer_id').get('channel_id'),
+                from_peer=self._get_from_peer(msg['from_id']),
+                fwd_from=self._get_fwd_info(self, msg.get('fwd_from'))
+            ))
+
+        return offset, rv
+
+    def _get_from_peer(self, from_id) -> dict:
+        rv = {'peer_type': from_id.get('_')}
+
+        if xid := from_id.get('channe_id'):
+            rv['channel_id'] = xid
+
+        if xid := from_id.get('user_id'):
+            rv['user_id'] = xid
+
+        return rv
+
+    def _get_fwd_info(self, fwd_from) -> dict:
+        if not fwd_from:
+            return
+
+        rv = {'date': fwd_from.get('date')}
+        if channe_post_id := fwd_from.get('channel_post'):
+            rv['channe_post_id'] = channe_post_id
+        
+        rv['from_peer'] = self._get_from_peer(fwd_from.get('from_id'))
+        return rv
+                
