@@ -27,7 +27,7 @@ class Method(BaseModel):
 
 
 class ChannelSchedule(BaseModel):
-    id: int
+    channel_id: int
     access_hash: int
     refresh_interval: Optional[int] = SETTINGS.CHANNEL_REFRESH_INTERVAL
     offset: Optional[int] = 1
@@ -43,7 +43,7 @@ class ChannelSchedule(BaseModel):
 
 
 class Channel(BaseModel):
-    id: Optional[int]
+    channel_id: Optional[int]
     title: str
     username: str
     participants_count: int

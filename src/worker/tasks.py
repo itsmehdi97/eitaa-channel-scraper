@@ -35,14 +35,14 @@ def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset:
         return
 
     crawler = MessageCrawler(
-        peer_channel=schemas.PeerChannel(channel_id=peer_channel['id'], access_hash=peer_channel['access_hash']),
+        peer_channel=schemas.PeerChannel(**peer_channel),
         http_agent=self.http_session,
         scraper=self._get_scraper(),
         repository=self.repository,
         rabbit_channel=self.rabbit_channel
     )
 
-    next_start_offset = crawler.start(start_offset)
+    next_start_offset = crawler.start(start_offset, end_offset)
 
     if next_start_offset and \
         next_start_offset >= end_offset and next_start_offset != 1:

@@ -52,13 +52,13 @@ class MongoChannScheduleRepository(BaseChannScheduleRepository):
     #     )
 
     def update(self, channel_name: str, **kwargs) -> None:
-        if self.get({"id": channel_name}) is None:
+        if self.get({"channel_id": channel_name}) is None:
             raise exceptions.NotFound(f"Channel not found: {channel_name}")
 
         kwargs["updated_at"] = datetime.utcnow()
 
         self._db[SETTINGS.CHANNELS_COLLECTION].update_one(
-            {"id": channel_name}, {"$set": kwargs}
+            {"channel_id": channel_name}, {"$set": kwargs}
         )
 
     def get(self, kwargs: dict) -> schemas.ChannelSchedule | None:
@@ -72,11 +72,12 @@ class MongoChannScheduleRepository(BaseChannScheduleRepository):
         chann_schedule.created_at = datetime.utcnow()
 
         self._db[SETTINGS.CHANNELS_COLLECTION].insert_one(chann_schedule.dict())
+        return chann_schedule
 
     def add_msg_to_channel(
-        self, channel_name: str, msgs: List[schemas.Message]
+        self, channel_name: str, msg :schemas.Message
     ) -> None:
-        self._db[SETTINGS.MESSAGES_COLLECTION].insert_many(
+        self._db[SETTINGS.MESSAGES_COLLECTION].insert_one(
             # [{**msg.dict(), "channel": channel_name} for msg in msgs]
-            [{'test': msg, "channel": channel_name} for msg in msgs]
+            {'text': msg, "channel": channel_name}
         )

@@ -146,8 +146,8 @@ class JSONMessageScraper:
         pts = full_chat.get("pts")
         
         return pts, schemas.Channel(
-            id=chat["id"],
-            title=chat.get("username"),
+            channel_id=chat["id"],
+            title=chat.get("title"),
             username=chat.get("username"),
             about=full_chat.get("about"),
             participants_count=full_chat.get("participants_count"),
@@ -158,5 +158,5 @@ class JSONMessageScraper:
         messages = history_data['messages']
         if messages:
             offset = messages[-1]['id']
-        return offset, [msg['message'] for msg in messages]
+        return offset, [{'text': msg.get('message'), 'id': msg['id']} for msg in messages]
             

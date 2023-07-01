@@ -42,11 +42,11 @@ class ChannelCrawler:
         if not pts:
             raise ValueError("Invalid info response for")
 
-        chan_sched = self._repository.get({"id": self.peer_channel.channel_id})
+        chan_sched = self._repository.get({"channel_id": self.peer_channel.channel_id})
         if chan_sched.pts:
             if pts <= chan_sched.pts:
                 logger.info(
-                    f"Channel`{self.peer_channel.channel_id}` has not changed since last run"
+                    f"Channel `{self.peer_channel.channel_id}` has not changed since last run"
                 )
                 return chan_sched.offset
         else:
@@ -73,10 +73,7 @@ class ChannelCrawler:
 
         from worker.tasks import get_message_page
         get_message_page.apply_async(kwargs={
-            'peer_channel': {
-                'id': self.peer_channel.channel_id,
-                'access_hash':self.peer_channel.access_hash
-            },
+            'peer_channel': self.peer_channel.dict(),
             'start_offset':msg_offset,
             'end_offset':_prev_offset
         })
@@ -85,7 +82,7 @@ class ChannelCrawler:
 
     @property
     def get_prev_run_offset(self) -> int | None:
-        channel = self._repository.get({"id": self.peer_channel.channel_id})
+        channel = self._repository.get({"channel_id": self.peer_channel.channel_id})
         if channel:
             return channel.offset or 1
 
@@ -105,14 +102,16 @@ class ChannelCrawler:
                 }
             },
         )
-        resp = self._http_agent.post(self.query_api_url, data=json.dumps({'args': method.args, "username": "989044600776"}))
+        resp = self._http_agent.post(
+            self.query_api_url,
+            data=json.dumps({'args': method.args, "username": "989215988724"}))
         return resp.json()['messages'][0]['id']
 
     def update_channel_offset(self, offset: int) -> None:
-        channel = self._repository.get({"channel_name": self.channel_name})
+        channel = self._repository.get({"channel_id": self.peer_channel.channel_id})
         current_offset = channel.offset
         if offset > current_offset:
-            self._repository.update(self.channel_name, offset=offset)
+            self._repository.update(self.peer_channel.channel_id, offset=offset)
 
     def get_channel_info(self) -> Tuple[int, schemas.Channel]:
         channel_data = self._fetch_channel()
@@ -130,11 +129,11 @@ class ChannelCrawler:
         )
         resp = self._http_agent.post(
             self.query_api_url,
-            data=json.dumps({'args': method.args, "username": "989044600776"}))
+            data=json.dumps({'args': method.args, "username": "989215988724"}))
         return resp.json()
 
     def _channel_info_updated(self, channel: schemas.Channel) -> bool:
-        if old_channel := self._repository.get({"id": channel.id}):
+        if old_channel := self._repository.get({"channel_id": self.peer_channel.channel_id}):
             return old_channel.title != channel.title or\
                 old_channel.username != channel.username or\
                 old_channel.participants_count != channel.participants_count or\
@@ -156,16 +155,21 @@ class MessageCrawler(ChannelCrawler):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def start(self, offset: int) -> int:
+    def start(self, offset: int, end_offset: int) -> int:
         next_page_offest, messages = self.get_msg_page(offset)
 
+        logger.info(f"###### END #### {end_offset}, {offset}")
+
         if messages:
-            self._repository.add_msg_to_channel(self.peer_channel.channel_id, messages)
             for msg in messages:
-                self.publish(
-                    msg,
-                    queue=SETTINGS.MESSAGES_QUEUE
-            )
+                if msg['id'] >= end_offset:
+                    # self.publish(
+                    #     msg,
+                    #     queue=SETTINGS.MESSAGES_QUEUE
+                    # )
+                    self._repository.add_msg_to_channel(self.peer_channel.channel_id, msg['text'])
+
+                else: break
 
         return next_page_offest
         
@@ -179,7 +183,7 @@ class MessageCrawler(ChannelCrawler):
             params={
                 "add_offset": 0,
                 "hash": 0,
-                "limit": 100,
+                "limit": 40,
                 "max_id": 0,
                 "min_id": 0,
                 "offset_date": 0,
@@ -192,5 +196,5 @@ class MessageCrawler(ChannelCrawler):
         )
         resp = self._http_agent.post(
             self.query_api_url, 
-            data=json.dumps({'args': method.args, "username": "989044600776"}))
+            data=json.dumps({'args': method.args, "username": "989215988724"}))
         return resp.json()

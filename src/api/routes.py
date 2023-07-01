@@ -17,26 +17,26 @@ router = APIRouter()
 async def add_channel(
     chann_schedule: schemas.ChannelSchedule,
     chann_repo: MongoChannScheduleRepository = Depends(get_repo),
-) -> str:
-    if chann_repo.get({"id": chann_schedule.id}):
+) -> schemas.ChannelSchedule:
+    if chann_repo.get({"channel_id": chann_schedule.channel_id}):
         raise HTTPException(status_code=400, detail="Channel already exists")
 
     chann_repo.create(chann_schedule)
 
     entry = RedBeatSchedulerEntry(
-        f"crawl-{chann_schedule.id}",
+        f"crawl-{chann_schedule.channel_id}",
         "worker.tasks.refresh_channel",
         schedule(chann_schedule.refresh_interval),
         app=celery_app,
         kwargs={
             "peer_channel": {
-                'channel_id': chann_schedule.id,
+                'channel_id': chann_schedule.channel_id,
                 'access_hash': chann_schedule.access_hash},
-        },
+            },
     )
     entry.save()
 
-    return "res.task_id"
+    return chann_schedule
 
 
 @router.get("/ping")
