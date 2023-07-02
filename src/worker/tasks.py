@@ -12,7 +12,11 @@ logger = getLogger(__name__)
 settings = get_settings()
 
 
-@app.task(bind=True)
+@app.task(bind=True,
+    retry_jitter=True,
+    retry_backoff=1.5,
+    autoretry_for=(Exception,),
+    retry_kwargs={'max_retries': 5})
 def refresh_channel(self, *, peer_channel: dict) -> None:  # type: ignore
     crawler = ChannelCrawler(
         peer_channel=schemas.PeerChannel(**peer_channel),
@@ -32,14 +36,18 @@ def refresh_channel(self, *, peer_channel: dict) -> None:  # type: ignore
         logger.info(f"Channel `{peer_channel['channel_id']}` stopped: {err_text}")
 
 
-@app.task(bind=True)
+
+@app.task(bind=True,
+    retry_jitter=True,
+    retry_backoff=1.5,
+    autoretry_for=(Exception,),
+    retry_kwargs={'max_retries': 5})
 def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset: int) -> None:
     if not start_offset:
         logger.info(f"start offset for channel `{peer_channel['channel_id']}`: None")
         return
 
     if start_offset <= end_offset or start_offset == 1:
-        # logger.info(f"start offset for channel `{channel_name}`: None")?
         return
 
     crawler = MessageCrawler(
