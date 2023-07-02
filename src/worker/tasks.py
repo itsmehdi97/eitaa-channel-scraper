@@ -4,6 +4,7 @@ import schemas
 from worker.celery import app
 from core.config import get_settings
 from crawler import ChannelCrawler, MessageCrawler
+from crawler import exceptions as exc
 
 
 logger = getLogger(__name__)
@@ -21,7 +22,14 @@ def refresh_channel(self, *, peer_channel: dict) -> None:  # type: ignore
         rabbit_channel=self.rabbit_channel
     )
 
-    crawler.start()
+    try:
+        crawler.start()
+
+    except exc.ChannelFetchException as e:
+        err_text = str(e)
+        crawler.stop(error=err_text)
+
+        logger.info(f"Channel `{peer_channel['channel_id']}` stopped: {err_text}")
 
 
 @app.task(bind=True)

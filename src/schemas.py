@@ -36,6 +36,10 @@ class ChannelSchedule(BaseModel):
     refresh_interval: Optional[int] = SETTINGS.CHANNEL_REFRESH_INTERVAL
     offset: Optional[int] = 1
     pts: Optional[int]
+
+    running: Optional[bool] = True
+    error: Optional[str]
+
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 

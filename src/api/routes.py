@@ -39,8 +39,8 @@ async def add_channel(
     return chann_schedule
 
 
-@router.delete("/channels/{channel_id}")
-async def add_channel(
+@router.put("/channels/{channel_id}")
+async def stop_channel(
     channel_id: int,
     chann_repo: MongoChannScheduleRepository = Depends(get_repo),
 ) -> schemas.ChannelSchedule:
@@ -48,8 +48,14 @@ async def add_channel(
     if not chann_sched:
         raise HTTPException(status_code=404, detail="Channel does not exist")
 
+
     entry = RedBeatSchedulerEntry.from_key(f"redbeat:crawl-{channel_id}", app=celery_app)
-    entry.delete()
+    try:
+        entry.delete()
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Channel does not exist")
+
+    chann_repo.update(channel_id, running=False)
 
     return chann_sched
 

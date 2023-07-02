@@ -4,11 +4,13 @@ from logging import getLogger
 
 from requests import Session
 from pika.channel import Channel as PikaChannel
+from pika.exceptions import AMQPConnectionError
 
 import schemas
 from core.config import get_settings
 from crawler.scraper import JSONMessageScraper
 from adapters import MongoChannScheduleRepository, RabbitConnection
+from crawler import exceptions
 
 
 logger = getLogger(__name__)
@@ -42,6 +44,13 @@ class ChannelCrawler:
         if not pts:
             raise ValueError("Invalid info response for")
 
+        if self._channel_info_updated(channel):
+            self.publish(
+                channel,
+                SETTINGS.CHANNELS_QUEUE)
+
+            self._repository.update(self.peer_channel.channel_id, **channel.dict())
+
         chan_sched = self._repository.get({"channel_id": self.peer_channel.channel_id})
         if chan_sched.pts:
             if pts <= chan_sched.pts:
@@ -51,13 +60,6 @@ class ChannelCrawler:
                 return chan_sched.offset
         else:
             self._repository.update(self.peer_channel.channel_id, pts=pts)
-
-        if self._channel_info_updated(channel):
-            self.publish(
-                channel,
-                SETTINGS.CHANNELS_QUEUE)
-
-            self._repository.update(self.peer_channel.channel_id, **channel.dict())
 
         msg_offset = self.get_channel_offset()
 
@@ -104,8 +106,12 @@ class ChannelCrawler:
         )
         resp = self._http_agent.post(
             self.query_api_url,
-            data=json.dumps({'args': method.args, "username": "989215988724"}))
-        return resp.json()['messages'][0]['id']
+            data=json.dumps({'args': method.args, "username": "989215988724"})).json()
+
+        if resp.get('_') == 'error':
+            raise exceptions.ChannelFetchException(resp.get("text"))
+
+        return resp['messages'][0]['id']
 
     def update_channel_offset(self, offset: int) -> None:
         channel = self._repository.get({"channel_id": self.peer_channel.channel_id})
@@ -116,6 +122,15 @@ class ChannelCrawler:
     def get_channel_info(self) -> Tuple[int, schemas.Channel]:
         channel_data = self._fetch_channel()
         return self._scraper.extract_channel_info(channel_data)
+
+    def stop(self, error: str=None) -> None:
+        from worker.celery import app as celery_app
+        from redbeat import RedBeatSchedulerEntry
+
+        entry = RedBeatSchedulerEntry.from_key(f"redbeat:crawl-{self.peer_channel.channel_id}", app=celery_app)
+        entry.delete()
+
+        self._repository.update(self.peer_channel.channel_id, running=False, error=error)
 
     def _fetch_channel(self) -> str:
         method = schemas.Method(
@@ -129,8 +144,12 @@ class ChannelCrawler:
         )
         resp = self._http_agent.post(
             self.query_api_url,
-            data=json.dumps({'args': method.args, "username": "989215988724"}))
-        return resp.json()
+            data=json.dumps({'args': method.args, "username": "989215988724"})).json()
+
+        if resp.get('_') == 'error':
+            raise exceptions.ChannelFetchException(resp.get("text"))
+
+        return resp
 
     def _channel_info_updated(self, channel: schemas.Channel) -> bool:
         if old_channel := self._repository.get({"channel_id": self.peer_channel.channel_id}):
@@ -140,15 +159,14 @@ class ChannelCrawler:
                 old_channel.about != channel.about
         
         return True
-
+    
     def publish(self, data: schemas.BaseModel, queue: str) -> None:
-        # RabbitConnection.publish(
-        #     json.dumps(data.json(), ensure_ascii=False),
-        #     channel=self._rabbit_channel,
-        #     exchange=queue,
-        #     routing_key=queue
-        # )
-        pass
+        RabbitConnection.publish(
+            json.dumps(data.json(), ensure_ascii=False),
+            channel=self._rabbit_channel,
+            exchange=queue,
+            routing_key=queue
+        )
 
 
 class MessageCrawler(ChannelCrawler):
@@ -158,18 +176,24 @@ class MessageCrawler(ChannelCrawler):
     def start(self, offset: int, end_offset: int) -> int:
         next_page_offest, messages = self.get_msg_page(offset)
 
-        logger.info(f"###### END #### {end_offset}, {offset}")
-
         if messages:
-            for msg in messages:
-                if msg['id'] >= end_offset:
-                    # self.publish(
-                    #     msg,
-                    #     queue=SETTINGS.MESSAGES_QUEUE
-                    # )
-                    self._repository.add_msg_to_channel(self.peer_channel.channel_id, msg['text'])
+            num_published = 0
+            try:
+                for msg in messages:
+                    if msg.id >= end_offset:
+                        self.publish(
+                            msg,
+                            queue=SETTINGS.MESSAGES_QUEUE
+                        )
+                        num_published += 1
 
-                else: break
+                    else: break
+
+            except AMQPConnectionError:
+                logger.info(f'returning early due to rabbitmq connection error. published: {num_published}')
+
+                return offset - num_published
+
 
         return next_page_offest
         
@@ -196,5 +220,9 @@ class MessageCrawler(ChannelCrawler):
         )
         resp = self._http_agent.post(
             self.query_api_url, 
-            data=json.dumps({'args': method.args, "username": "989215988724"}))
-        return resp.json()
+            data=json.dumps({'args': method.args, "username": "989215988724"})).json()
+
+        if resp.get('_') == 'error':
+            raise exceptions.ChannelFetchException(resp.get("text"))
+
+        return resp
