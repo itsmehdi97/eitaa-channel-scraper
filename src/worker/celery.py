@@ -1,3 +1,5 @@
+from logging import getLogger
+
 import requests
 from requests.adapters import HTTPAdapter, Retry
 from celery import Celery
@@ -13,6 +15,8 @@ from crawler import JSONMessageScraper
 from adapters import MongoChannScheduleRepository, RabbitConnection
 
 
+logger = getLogger(__name__)
+
 settings = get_settings()
 
 
@@ -20,6 +24,7 @@ class CustomTask(Task):
     _db: MongoClient = None
     _http: requests.Session = None
     _rabbit_conn: pika.BaseConnection = None
+    _rabbit_chann: Channel = None
 
     @property
     def repository(self) -> MongoClient:
@@ -61,14 +66,18 @@ class CustomTask(Task):
                 routing_key=settings.MESSAGES_QUEUE,
             )
             self._rabbit_conn = conn
-        try:
-            return self._rabbit_conn.get_channel()
-        except Exception as e:
-            conn = RabbitConnection(conn_url=settings.RABBITMQ_URL)
-            self._rabbit_conn = conn
-            chann = self._rabbit_conn.get_channel()
-            return chann
 
+        if self._rabbit_chann is None:
+            logger.info("creating rabbitmq channel")
+            try:
+                self._rabbit_chann = self._rabbit_conn.get_channel()
+            except Exception as e:
+                logger.info("restarting tabbitmq connection")
+                conn = RabbitConnection(conn_url=settings.RABBITMQ_URL)
+                self._rabbit_conn = conn
+                self._rabbit_chann = self._rabbit_conn.get_channel()
+
+        return self._rabbit_chann
 
 app = Celery(__name__, task_cls="worker.celery.CustomTask")
 app.conf.broker_url = settings.CELERY_BROKER_URL
