@@ -67,8 +67,8 @@ class CustomTask(Task):
             )
             self._rabbit_conn = conn
 
-        if self._rabbit_chann is None:
-            logger.info("creating rabbitmq channel")
+        if self._rabbit_chann is None or self._rabbit_chann.is_closed:
+            logger.info("creating rabbit channel")
             try:
                 self._rabbit_chann = self._rabbit_conn.get_channel()
             except Exception as e:
@@ -83,5 +83,9 @@ app = Celery(__name__, task_cls="worker.celery.CustomTask")
 app.conf.broker_url = settings.CELERY_BROKER_URL
 
 app.autodiscover_tasks(packages=["worker"], related_name="tasks")
+
+app.conf.task_annotations = {
+    'worker.tasks.get_message_page': {'rate_limit': settings.CELERY_TASK_RATE_LIMIT},
+}
 
 app.conf.redbeat_redis_url = settings.REDBEAT_REDIS_URL
