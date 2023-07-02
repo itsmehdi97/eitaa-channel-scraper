@@ -1,8 +1,5 @@
 import pika
 from pika.channel import Channel
-from pika.exceptions import AMQPConnectionError
-
-from retry import retry
 
 
 class RabbitConnection:
@@ -34,7 +31,6 @@ class RabbitConnection:
         return self._conn.channel()
 
     @classmethod
-    @retry(AMQPConnectionError, delay=0.2, tries=5)
     def publish(
         cls, data: str | bytes, *, channel: Channel, exchange: str, routing_key: str
     ):
