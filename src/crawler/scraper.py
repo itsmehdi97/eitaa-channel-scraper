@@ -168,16 +168,18 @@ class JSONMessageScraper:
                 views=msg.get('views'),
                 forwards=msg.get('forwards'),
                 channel_id=msg.get('peer_id').get('channel_id'),
-                from_peer=self._get_from_peer(msg['from_id']),
-                fwd_from=self._get_fwd_info(self, msg.get('fwd_from'))
+                from_peer=self._get_from_peer(msg.get('from_id')),
+                fwd_from=self._get_fwd_info(msg.get('fwd_from'))
             ))
 
         return offset, rv
 
-    def _get_from_peer(self, from_id) -> dict:
+    def _get_from_peer(self, from_id) -> dict | None:
+        if not from_id:
+            return
         rv = {'peer_type': from_id.get('_')}
 
-        if xid := from_id.get('channe_id'):
+        if xid := from_id.get('channel_id'):
             rv['channel_id'] = xid
 
         if xid := from_id.get('user_id'):
@@ -185,7 +187,7 @@ class JSONMessageScraper:
 
         return rv
 
-    def _get_fwd_info(self, fwd_from) -> dict:
+    def _get_fwd_info(self, fwd_from) -> dict | None:
         if not fwd_from:
             return
 

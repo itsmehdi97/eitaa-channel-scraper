@@ -77,7 +77,4 @@ class MongoChannScheduleRepository(BaseChannScheduleRepository):
     def add_msg_to_channel(
         self, channel_name: str, msg :schemas.Message
     ) -> None:
-        self._db[SETTINGS.MESSAGES_COLLECTION].insert_one(
-            # [{**msg.dict(), "channel": channel_name} for msg in msgs]
-            {'text': msg, "channel": channel_name}
-        )
+        self._db[SETTINGS.MESSAGES_COLLECTION].insert_one(msg.dict())

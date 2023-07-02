@@ -55,11 +55,11 @@ class Channel(BaseModel):
 
 
 class Message(BaseModel):
-    id: str
+    id: int
     message: Optional[str]
     date: int
     views: Optional[int]
     forwards: Optional[int]
     channel_id: int
-    from_peer: dict
+    from_peer: Optional[dict]
     fwd_from: Optional[dict]
