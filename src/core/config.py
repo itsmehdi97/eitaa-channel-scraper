@@ -20,6 +20,7 @@ class Settings(BaseSettings):
 
     CELERY_BROKER_URL: str
     REDBEAT_REDIS_URL: str
+    CELERY_TASK_RATE_LIMIT: str
 
     RABBITMQ_URL: str
     CHANNELS_QUEUE: str
