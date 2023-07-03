@@ -4,7 +4,7 @@ from logging import getLogger
 
 from requests import Session
 from pika.channel import Channel as PikaChannel
-from pika.exceptions import AMQPConnectionError
+from pika.exceptions import AMQPConnectionError, AMQPChannelError
 
 import schemas
 from core.config import get_settings
@@ -173,7 +173,7 @@ class MessageCrawler(ChannelCrawler):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def start(self, offset: int, end_offset: int) -> int:
+    def start(self, offset: int, end_offset: int) -> Tuple[int, bool]:
         next_page_offest, messages = self.get_msg_page(offset)
 
         if messages:
@@ -189,13 +189,11 @@ class MessageCrawler(ChannelCrawler):
 
                     else: break
 
-            except AMQPConnectionError:
-                logger.info(f'returning early due to rabbitmq connection error. published: {num_published}')
+            except (AMQPConnectionError, AMQPChannelError):
+                logger.info(f'Connection to broker failed. published count: {num_published}')
+                return (offset - num_published), True
 
-                return offset - num_published
-
-
-        return next_page_offest
+        return next_page_offest, False
         
     def get_msg_page(self, offset: int) -> Tuple[int, List[schemas.Message]]:
         history_data = self._fetch_msg_page(offset)

@@ -1,3 +1,4 @@
+import random
 from logging import getLogger
 
 import schemas
@@ -14,9 +15,9 @@ settings = get_settings()
 
 @app.task(bind=True,
     retry_jitter=True,
-    retry_backoff=1.5,
+    retry_backoff=1,
     autoretry_for=(Exception,),
-    retry_kwargs={'max_retries': 5})
+    retry_kwargs={'max_retries': 10})
 def refresh_channel(self, *, peer_channel: dict) -> None:  # type: ignore
     crawler = ChannelCrawler(
         peer_channel=schemas.PeerChannel(**peer_channel),
@@ -36,12 +37,11 @@ def refresh_channel(self, *, peer_channel: dict) -> None:  # type: ignore
         logger.info(f"Channel `{peer_channel['channel_id']}` stopped: {err_text}")
 
 
-
 @app.task(bind=True,
     retry_jitter=True,
-    retry_backoff=1.5,
+    retry_backoff=1,
     autoretry_for=(Exception,),
-    retry_kwargs={'max_retries': 5})
+    retry_kwargs={'max_retries': 20})
 def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset: int) -> None:
     if not start_offset:
         logger.info(f"start offset for channel `{peer_channel['channel_id']}`: None")
@@ -58,7 +58,13 @@ def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset:
         rabbit_channel=self.rabbit_channel
     )
 
-    next_start_offset = crawler.start(start_offset, end_offset)
+    next_start_offset, corrupted = crawler.start(start_offset, end_offset)
+    if corrupted:
+        self.retry(kwargs={
+            'peer_channel': peer_channel,
+            'start_offset': next_start_offset,
+            'end_offset': end_offset
+        }, max_retries=20, countdown=int(random.uniform(1, 2) * self.request.retries))
 
     if next_start_offset and \
         next_start_offset >= end_offset and next_start_offset != 1:
