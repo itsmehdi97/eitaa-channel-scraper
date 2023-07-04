@@ -1,11 +1,16 @@
+import json
 import random
+from typing import List
 from logging import getLogger
+
+from pika.exceptions import AMQPConnectionError, AMQPChannelError
 
 import schemas
 from worker.celery import app
 from core.config import get_settings
 from crawler import ChannelCrawler, MessageCrawler
 from crawler import exceptions as exc
+from adapters.broker import RabbitConnection
 
 
 logger = getLogger(__name__)
@@ -73,3 +78,27 @@ def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset:
             'start_offset': next_start_offset,
             'end_offset': end_offset
         })
+
+
+@app.task(bind=True,
+    retry_jitter=True,
+    retry_backoff=1,
+    autoretry_for=(Exception,),
+    retry_kwargs={'max_retries': 20})
+def publish_many(self, *, data: List[schemas.BaseModel], queue: str) -> None:
+    num_published = 0
+    try:
+        for item in data:
+            RabbitConnection.publish(
+                json.dumps(item.json(), ensure_ascii=False),
+                channel=self._rabbit_channel,
+                exchange=queue,
+                routing_key=queue)
+
+            num_published += 1
+
+    except (AMQPConnectionError, AMQPChannelError):
+        self.retry(kwargs={
+            'data': data[num_published:],
+            'queue': queue,
+        }, max_retries=20, countdown=int(random.uniform(1, 2) * self.request.retries))

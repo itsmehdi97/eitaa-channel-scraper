@@ -51,11 +51,12 @@ class ChannelSchedule(BaseModel):
 
 
 class Channel(BaseModel):
-    channel_id: Optional[int]
-    title: str
-    username: str
-    participants_count: int
-    about: str
+    channel_id: int
+    access_hash: Optional[int]
+    title: Optional[str]
+    username: Optional[str]
+    participants_count: Optional[int]
+    about: Optional[str]
 
 
 class Message(BaseModel):
@@ -67,3 +68,12 @@ class Message(BaseModel):
     channel_id: int
     from_peer: Optional[dict]
     fwd_from: Optional[dict]
+
+
+class User(BaseModel):
+    id: int
+    access_hash: Optional[int]
+    first_name: Optional[str]
+    last_name: Optional[str]
+    username: Optional[str]
+    phone: Optional[str]

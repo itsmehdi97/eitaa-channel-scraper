@@ -153,15 +153,17 @@ class JSONMessageScraper:
             participants_count=full_chat.get("participants_count"),
         )
 
-    def extarct_messages(self, history_data: dict) -> Tuple[int | None, List[schemas.Message]]:
+    def extract_entities(self, history_data: dict) -> Tuple[int | None, List[schemas.Message], List[schemas.Channel], List[schemas.User]]:
         offset = None
-        messages = history_data['messages']
+        messages = history_data.get('messages', [])
+        chats = history_data.get('chats', [])
+        users = history_data.get('users', [])
         if messages:
             offset = messages[-1]['id']
 
-        rv = []
+        parsed_msgs = []
         for msg in messages:
-            rv.append(schemas.Message(
+            parsed_msgs.append(schemas.Message(
                 id=msg['id'],
                 message=msg.get('message'),
                 date=msg.get('date'),
@@ -172,7 +174,28 @@ class JSONMessageScraper:
                 fwd_from=self._get_fwd_info(msg.get('fwd_from'))
             ))
 
-        return offset, rv
+        parsed_chats = []
+        for chat in chats:
+            parsed_chats.append(schemas.Channel(
+                channel_id=chat.get('id'),
+                access_hash=chat.get('access_hash'),
+                title=chat.get('title'),
+                username=chat.get('username'),
+                participants_count=chat.get('participants_count')
+            ))
+
+        parsed_users = []
+        for user in users:
+            parsed_users.append(schemas.User(
+                id=user.get('id'),
+                access_hash=user.get('access_hash'),
+                first_name=user.get('first_name'),
+                last_name=user.get('last_name'),
+                username=user.get('username'),
+                phone=user.get('phone')
+            ))
+        
+        return offset, parsed_msgs, parsed_chats, parsed_users
 
     def _get_from_peer(self, from_id) -> dict | None:
         if not from_id:

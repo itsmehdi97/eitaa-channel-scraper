@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     RABBITMQ_URL: str
     CHANNELS_QUEUE: str
     MESSAGES_QUEUE: str
+    USERS_QUEUE: str
 
     LOG_LEVEL: str
 

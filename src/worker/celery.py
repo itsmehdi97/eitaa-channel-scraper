@@ -65,14 +65,19 @@ class CustomTask(Task):
                 exchange=settings.MESSAGES_QUEUE,
                 routing_key=settings.MESSAGES_QUEUE,
             )
+            conn.bind_queue(
+                queue=settings.USERS_QUEUE,
+                exchange=settings.USERS_QUEUE,
+                routing_key=settings.USERS_QUEUE,
+            )
             self._rabbit_conn = conn
 
         if self._rabbit_chann is None or self._rabbit_chann.is_closed:
             logger.info("creating rabbit channel")
             try:
                 self._rabbit_chann = self._rabbit_conn.get_channel()
-            except Exception as e:
-                logger.info("restarting tabbitmq connection")
+            except Exception:
+                logger.info("restarting rabbitmq connection")
                 conn = RabbitConnection(conn_url=settings.RABBITMQ_URL)
                 self._rabbit_conn = conn
                 self._rabbit_chann = self._rabbit_conn.get_channel()

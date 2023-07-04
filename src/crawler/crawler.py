@@ -45,8 +45,8 @@ class ChannelCrawler:
             raise ValueError("Invalid info response for")
 
         if self._channel_info_updated(channel):
-            self.publish(
-                channel,
+            self.publish_many(
+                [channel],
                 SETTINGS.CHANNELS_QUEUE)
 
             self._repository.update(self.peer_channel.channel_id, **channel.dict())
@@ -160,13 +160,29 @@ class ChannelCrawler:
         
         return True
     
-    def publish(self, data: schemas.BaseModel, queue: str) -> None:
+    def _publish(self, data: schemas.BaseModel, queue: str) -> None:
         RabbitConnection.publish(
             json.dumps(data.json(), ensure_ascii=False),
             channel=self._rabbit_channel,
             exchange=queue,
             routing_key=queue
         )
+    
+    def publish_many(self, data: List[schemas.BaseModel], queue: str) -> None:
+        from worker.tasks import publish_many
+
+        num_published = 0
+        try:
+            for item in data:
+                self._publish(item, queue)
+                num_published += 1
+
+        except (AMQPConnectionError, AMQPChannelError):
+            logger.info(f'Connection to broker failed. published count: {num_published}')
+            publish_many.apply_async(kwargs={
+                'data': list(map(lambda item: item.json(), data[num_published:])),
+                'queue': queue
+            })
 
 
 class MessageCrawler(ChannelCrawler):
@@ -174,30 +190,19 @@ class MessageCrawler(ChannelCrawler):
         super().__init__(*args, **kwargs)
 
     def start(self, offset: int, end_offset: int) -> Tuple[int, bool]:
-        next_page_offest, messages = self.get_msg_page(offset)
+        next_page_offest, messages, channels, users = self.get_msg_page(offset)
 
-        if messages:
-            num_published = 0
-            try:
-                for msg in messages:
-                    if msg.id >= end_offset:
-                        self.publish(
-                            msg,
-                            queue=SETTINGS.MESSAGES_QUEUE
-                        )
-                        num_published += 1
 
-                    else: break
-
-            except (AMQPConnectionError, AMQPChannelError):
-                logger.info(f'Connection to broker failed. published count: {num_published}')
-                return (offset - num_published), True
+        self.publish_many(
+            list(filter(lambda m: m.id >= end_offset, messages)), SETTINGS.MESSAGES_QUEUE)
+        self.publish_many(channels, SETTINGS.CHANNELS_QUEUE)
+        self.publish_many(users, SETTINGS.USERS_QUEUE)
 
         return next_page_offest, False
         
-    def get_msg_page(self, offset: int) -> Tuple[int, List[schemas.Message]]:
+    def get_msg_page(self, offset: int) -> Tuple[int, List[schemas.Message], List[schemas.Channel], List[schemas.User]]:
         history_data = self._fetch_msg_page(offset)
-        return self._scraper.extarct_messages(history_data)
+        return self._scraper.extract_entities(history_data)
 
     def _fetch_msg_page(self, offset: int) -> str:
         method = schemas.Method(
