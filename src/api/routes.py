@@ -48,9 +48,8 @@ async def stop_channel(
     if not chann_sched:
         raise HTTPException(status_code=404, detail="Channel does not exist")
 
-
-    entry = RedBeatSchedulerEntry.from_key(f"redbeat:crawl-{channel_id}", app=celery_app)
     try:
+        entry = RedBeatSchedulerEntry.from_key(f"redbeat:crawl-{channel_id}", app=celery_app)
         entry.delete()
     except KeyError:
         raise HTTPException(status_code=404, detail="Channel does not exist")
