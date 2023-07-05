@@ -18,10 +18,16 @@ async def add_channel(
     chann_schedule: schemas.ChannelSchedule,
     chann_repo: MongoChannScheduleRepository = Depends(get_repo),
 ) -> schemas.ChannelSchedule:
-    if chann_repo.get({"channel_id": chann_schedule.channel_id}):
-        raise HTTPException(status_code=400, detail="Channel already exists")
+    old = chann_repo.get({"channel_id": chann_schedule.channel_id})
+    if old and old.running:
+        raise HTTPException(status_code=400, detail="Channel is already running")
 
-    chann_repo.create(chann_schedule)
+    if not old:
+        chann_repo.create(chann_schedule)
+    else:
+        chann_schedule = old
+
+    chann_repo.update(chann_schedule.channel_id, running=True, error=None)
 
     entry = RedBeatSchedulerEntry(
         f"crawl-{chann_schedule.channel_id}",
