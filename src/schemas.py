@@ -77,3 +77,6 @@ class User(BaseModel):
     last_name: Optional[str]
     username: Optional[str]
     phone: Optional[str]
+
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]

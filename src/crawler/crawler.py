@@ -9,7 +9,7 @@ from pika.exceptions import AMQPConnectionError, AMQPChannelError
 import schemas
 from core.config import get_settings
 from crawler.scraper import JSONMessageScraper
-from adapters import MongoChannScheduleRepository, RabbitConnection
+from adapters import MongoChannScheduleRepository, MongoUserRepository,  RabbitConnection
 from crawler import exceptions
 
 
@@ -29,14 +29,16 @@ class ChannelCrawler:
         *,
         http_agent: Session,
         scraper: JSONMessageScraper,
-        repository: MongoChannScheduleRepository,
+        channel_repository: MongoChannScheduleRepository,
+        user_repository: MongoUserRepository,
         rabbit_channel: PikaChannel
     ) -> None:
         self.peer_channel = peer_channel
         self.query_api_url = SETTINGS.QUERY_API_URL
         self._http_agent = http_agent
         self._scraper = scraper
-        self._repository = repository
+        self._channel_repository = channel_repository
+        self._user_repository = user_repository
         self._rabbit_channel = rabbit_channel
 
     def start(self) -> int:
@@ -49,9 +51,9 @@ class ChannelCrawler:
                 [channel],
                 SETTINGS.CHANNELS_QUEUE)
 
-            self._repository.update(self.peer_channel.channel_id, **channel.dict())
+            self._channel_repository.update(self.peer_channel.channel_id, **channel.dict())
 
-        chan_sched = self._repository.get({"channel_id": self.peer_channel.channel_id})
+        chan_sched = self._channel_repository.get({"channel_id": self.peer_channel.channel_id})
         if chan_sched.pts:
             if pts <= chan_sched.pts:
                 logger.info(
@@ -59,7 +61,7 @@ class ChannelCrawler:
                 )
                 return chan_sched.offset
         else:
-            self._repository.update(self.peer_channel.channel_id, pts=pts)
+            self._channel_repository.update(self.peer_channel.channel_id, pts=pts)
 
         msg_offset = self.get_channel_offset()
 
@@ -71,7 +73,7 @@ class ChannelCrawler:
 
         _prev_offset = self.get_prev_run_offset
 
-        self._repository.update(self.peer_channel.channel_id, offset=msg_offset)
+        self._channel_repository.update(self.peer_channel.channel_id, offset=msg_offset)
 
         from worker.tasks import get_message_page
         get_message_page.apply_async(kwargs={
@@ -84,7 +86,7 @@ class ChannelCrawler:
 
     @property
     def get_prev_run_offset(self) -> int | None:
-        channel = self._repository.get({"channel_id": self.peer_channel.channel_id})
+        channel = self._channel_repository.get({"channel_id": self.peer_channel.channel_id})
         if channel:
             return channel.offset or 1
 
@@ -114,10 +116,10 @@ class ChannelCrawler:
         return resp['messages'][0]['id']
 
     def update_channel_offset(self, offset: int) -> None:
-        channel = self._repository.get({"channel_id": self.peer_channel.channel_id})
+        channel = self._channel_repository.get({"channel_id": self.peer_channel.channel_id})
         current_offset = channel.offset
         if offset > current_offset:
-            self._repository.update(self.peer_channel.channel_id, offset=offset)
+            self._channel_repository.update(self.peer_channel.channel_id, offset=offset)
 
     def get_channel_info(self) -> Tuple[int, schemas.Channel]:
         channel_data = self._fetch_channel()
@@ -130,7 +132,7 @@ class ChannelCrawler:
         entry = RedBeatSchedulerEntry.from_key(f"redbeat:crawl-{self.peer_channel.channel_id}", app=celery_app)
         entry.delete()
 
-        self._repository.update(self.peer_channel.channel_id, running=False, error=error)
+        self._channel_repository.update(self.peer_channel.channel_id, running=False, error=error)
 
     def _fetch_channel(self) -> str:
         method = schemas.Method(
@@ -152,7 +154,7 @@ class ChannelCrawler:
         return resp
 
     def _channel_info_updated(self, channel: schemas.Channel) -> bool:
-        if old_channel := self._repository.get({"channel_id": self.peer_channel.channel_id}):
+        if old_channel := self._channel_repository.get({"channel_id": self.peer_channel.channel_id}):
             return old_channel.title != channel.title or\
                 old_channel.username != channel.username or\
                 old_channel.participants_count != channel.participants_count or\
@@ -192,13 +194,35 @@ class MessageCrawler(ChannelCrawler):
     def start(self, offset: int, end_offset: int) -> Tuple[int, bool]:
         next_page_offest, messages, channels, users = self.get_msg_page(offset)
 
-
         self.publish_many(
             list(filter(lambda m: m.id >= end_offset, messages)), SETTINGS.MESSAGES_QUEUE)
-        self.publish_many(channels, SETTINGS.CHANNELS_QUEUE)
-        self.publish_many(users, SETTINGS.USERS_QUEUE)
+        self.publish_many(self._get_new_channels(channels), SETTINGS.CHANNELS_QUEUE)
+        self.publish_many(self._get_new_users(users), SETTINGS.USERS_QUEUE)
 
         return next_page_offest, False
+
+    def _get_new_channels(self, channels: List[schemas.Channel]) -> List[schemas.Channel]:
+        rv = []
+        for channel in channels:
+            old = self._channel_repository.get({"channel_id": channel.channel_id})
+            if not old:
+                self._channel_repository.create(schemas.ChannelSchedule(**{
+                    **channel.dict(),
+                    'running': False,
+                }))
+                rv.append(channel)
+            
+        return rv
+            
+    def _get_new_users(self, users: List[schemas.User]) -> List[schemas.User]:
+        rv = []
+        for user in users:
+            old = self._user_repository.get({"id": user.id})
+            if not old:
+                self._user_repository.create(user)
+                rv.append(user)
+            
+        return rv
         
     def get_msg_page(self, offset: int) -> Tuple[int, List[schemas.Message], List[schemas.Channel], List[schemas.User]]:
         history_data = self._fetch_msg_page(offset)

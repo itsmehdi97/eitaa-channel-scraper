@@ -78,3 +78,31 @@ class MongoChannScheduleRepository(BaseChannScheduleRepository):
         self, channel_name: str, msg :schemas.Message
     ) -> None:
         self._db[SETTINGS.MESSAGES_COLLECTION].insert_one(msg.dict())
+
+
+class MongoUserRepository(BaseChannScheduleRepository):
+    def __init__(self, client: MongoClient) -> None:
+        self._db = client["eitaa"]
+
+    def update(self, id: int, **kwargs) -> None:
+        if self.get({"id": id}) is None:
+            raise exceptions.NotFound(f"Channel not found: {id}")
+
+        kwargs["updated_at"] = datetime.utcnow()
+
+        self._db[SETTINGS.USERS].update_one(
+            {"id": id}, {"$set": kwargs}
+        )
+
+    def get(self, kwargs: dict) -> schemas.User | None:
+        d = self._db[SETTINGS.USERS_COLLECTION].find_one(kwargs)
+        if d:
+            return schemas.User(**d)
+
+    def create(
+        self, user: schemas.User
+    ) -> schemas.User:
+        user.created_at = datetime.utcnow()
+
+        self._db[SETTINGS.USERS_COLLECTION].insert_one(user.dict())
+        return user

@@ -12,7 +12,7 @@ from core.config import get_settings
 from db.tasks import connect_to_db
 from db import MongoClient
 from crawler import JSONMessageScraper
-from adapters import MongoChannScheduleRepository, RabbitConnection
+from adapters import MongoChannScheduleRepository, MongoUserRepository, RabbitConnection
 
 
 logger = getLogger(__name__)
@@ -27,10 +27,16 @@ class CustomTask(Task):
     _rabbit_chann: Channel = None
 
     @property
-    def repository(self) -> MongoClient:
+    def channel_repository(self) -> MongoClient:
         if self._db is None:
             self._db = connect_to_db()
         return MongoChannScheduleRepository(self._db)
+
+    @property
+    def user_repository(self) -> MongoClient:
+        if self._db is None:
+            self._db = connect_to_db()
+        return MongoUserRepository(self._db)
 
     @property
     def http_session(self) -> requests.Session:

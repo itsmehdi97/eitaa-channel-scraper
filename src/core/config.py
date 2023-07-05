@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     MONGO_PASSWORD: str
     CHANNELS_COLLECTION: str
     MESSAGES_COLLECTION: str
+    USERS_COLLECTION: str
 
     CELERY_BROKER_URL: str
     REDBEAT_REDIS_URL: str

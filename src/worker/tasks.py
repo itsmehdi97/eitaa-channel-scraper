@@ -27,7 +27,8 @@ def refresh_channel(self, *, peer_channel: dict) -> None:  # type: ignore
         peer_channel=schemas.PeerChannel(**peer_channel),
         http_agent=self.http_session,
         scraper=self._get_scraper(),
-        repository=self.repository,
+        channel_repository=self.channel_repository,
+        user_repository=self.user_repository,
         rabbit_channel=self.rabbit_channel
     )
 
@@ -58,7 +59,8 @@ def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset:
         peer_channel=schemas.PeerChannel(**peer_channel),
         http_agent=self.http_session,
         scraper=self._get_scraper(),
-        repository=self.repository,
+        channel_repository=self.channel_repository,
+        user_repository=self.user_repository,
         rabbit_channel=self.rabbit_channel
     )
 
