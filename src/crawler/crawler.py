@@ -162,7 +162,7 @@ class ChannelCrawler:
     
     def _publish(self, data: schemas.BaseModel, queue: str) -> None:
         RabbitConnection.publish(
-            json.dumps(data.json(), ensure_ascii=False),
+            data.json(ensure_ascii=False),
             channel=self._rabbit_channel,
             exchange=queue,
             routing_key=queue
@@ -180,7 +180,7 @@ class ChannelCrawler:
         except (AMQPConnectionError, AMQPChannelError):
             logger.info(f'Connection to broker failed. published count: {num_published}')
             publish_many.apply_async(kwargs={
-                'data': list(map(lambda item: item.json(), data[num_published:])),
+                'data': list(map(lambda item: item.json(ensure_ascii=False), data[num_published:])),
                 'queue': queue
             })
 

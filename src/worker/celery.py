@@ -84,6 +84,7 @@ class CustomTask(Task):
 
         return self._rabbit_chann
 
+
 app = Celery(__name__, task_cls="worker.celery.CustomTask")
 app.conf.broker_url = settings.CELERY_BROKER_URL
 

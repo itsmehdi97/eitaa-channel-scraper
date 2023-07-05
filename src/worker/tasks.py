@@ -1,4 +1,3 @@
-import json
 import random
 from typing import List
 from logging import getLogger
@@ -85,13 +84,13 @@ def get_message_page(self, *, peer_channel: dict, start_offset: int, end_offset:
     retry_backoff=1,
     autoretry_for=(Exception,),
     retry_kwargs={'max_retries': 20})
-def publish_many(self, *, data: List[schemas.BaseModel], queue: str) -> None:
+def publish_many(self, *, data: List[str | bytes], queue: str) -> None:
     num_published = 0
     try:
         for item in data:
             RabbitConnection.publish(
-                json.dumps(item.json(), ensure_ascii=False),
-                channel=self._rabbit_channel,
+                item,
+                channel=self.rabbit_channel,
                 exchange=queue,
                 routing_key=queue)
 
